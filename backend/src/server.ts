@@ -129,18 +129,25 @@ export async function buildApp() {
 }
 
 if (process.env.NODE_ENV !== 'test') {
-  await refreshSettings().catch(() => {});
-  await raiseMinWithdrawOnce().catch((e) => console.error('settings.min_withdraw_failed', e.message));
-  await bootstrapAdmin().catch((e) => console.error('admin.bootstrap_failed', e.message));
-  const app = await buildApp();
-  const stopJobs = env.RUN_JOBS === 'true' ? startJobs() : () => {};
-  
-  // CHANGE THIS LINE:
-  const port = Number(process.env.PORT) || 4000;
-  await app.listen({ port, host: '0.0.0.0' });
-  console.log(`Server listening on port ${port}`);
+  (async () => {
+    try {
+      await refreshSettings().catch(() => {});
+      await raiseMinWithdrawOnce().catch((e) => console.error('settings.min_withdraw_failed', e.message));
+      await bootstrapAdmin().catch((e) => console.error('admin.bootstrap_failed', e.message));
+      
+      const app = await buildApp();
+      const stopJobs = env.RUN_JOBS === 'true' ? startJobs() : () => {};
+      
+      const port = Number(process.env.PORT) || 4000;
+      await app.listen({ port, host: '0.0.0.0' });
+      console.log(`Server listening on port ${port}`);
 
-  const stop = async () => { stopJobs(); await app.close(); await prisma.$disconnect(); process.exit(0); };
-  process.on('SIGTERM', stop);
-  process.on('SIGINT', stop);
+      const stop = async () => { stopJobs(); await app.close(); await prisma.$disconnect(); process.exit(0); };
+      process.on('SIGTERM', stop);
+      process.on('SIGINT', stop);
+    } catch (err) {
+      console.error('FATAL_STARTUP_CRASH:', err);
+      process.exit(1);
+    }
+  })();
 }
