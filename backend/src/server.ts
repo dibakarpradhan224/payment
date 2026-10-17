@@ -134,7 +134,12 @@ if (process.env.NODE_ENV !== 'test') {
   await bootstrapAdmin().catch((e) => console.error('admin.bootstrap_failed', e.message));
   const app = await buildApp();
   const stopJobs = env.RUN_JOBS === 'true' ? startJobs() : () => {};
-  await app.listen({ port: env.PORT, host: '0.0.0.0' });
+  
+  // CHANGE THIS LINE:
+  const port = Number(process.env.PORT) || 4000;
+  await app.listen({ port, host: '0.0.0.0' });
+  console.log(`Server listening on port ${port}`);
+
   const stop = async () => { stopJobs(); await app.close(); await prisma.$disconnect(); process.exit(0); };
   process.on('SIGTERM', stop);
   process.on('SIGINT', stop);
