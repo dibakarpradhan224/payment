@@ -1,0 +1,486 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  SUSPENDED
+}
+
+enum OtpPurpose {
+  REGISTER
+  PASSWORD_RESET
+  PIN_RESET
+}
+
+// All money is stored as BigInt PAISE (1 INR = 100 paise). Never floats.
+model User {
+  id                  String     @id @default(uuid())
+  email               String     @unique
+  mobile              String     @unique
+  name                String?
+  passwordHash        String
+  pinHash             String?
+  paymentId           String     @unique
+  status              UserStatus @default(ACTIVE)
+  emailVerifiedAt     DateTime?
+  failedLoginAttempts Int        @default(0)
+  lockedUntil         DateTime?
+  pinFailedAttempts   Int        @default(0)
+  pinLockedUntil      DateTime?
+  notifyEmail         Boolean    @default(true)
+  notifyTelegram      Boolean    @default(true)
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  wallet      Wallet?
+  sessions    Session[]
+  resetTokens  ResetToken[]
+  transactions Transaction[]
+  upiOrders        UpiOrder[]
+  utrSubmissions   UtrSubmission[]
+  apiTokens        ApiToken[]
+  paymentRequests  PaymentRequest[]
+  withdrawals      Withdrawal[]
+  webhookEndpoint  WebhookEndpoint?
+  notifications    Notification[]
+  telegramLink     TelegramLink?
+  telegramCodes    TelegramLinkCode[]
+  riskFlags        RiskFlag[]
+}
+
+model Wallet {
+  id               String   @id @default(uuid())
+  userId           String   @unique
+  available        BigInt   @default(0)
+  locked           BigInt   @default(0)
+  totalDeposited   BigInt   @default(0)
+  totalWithdrawn   BigInt   @default(0)
+  totalTransferred BigInt   @default(0)
+  totalReceived    BigInt   @default(0)
+  totalFees        BigInt   @default(0)
+  frozen           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+}
+
+model Session {
+  id         String    @id @default(uuid())
+  userId     String
+  tokenHash  String    @unique
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  expiresAt  DateTime
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Otp {
+  id          String     @id @default(uuid())
+  email       String
+  purpose     OtpPurpose
+  codeHash    String
+  attempts    Int        @default(0)
+  maxAttempts Int        @default(5)
+  meta        Json?
+  expiresAt   DateTime
+  consumedAt  DateTime?
+  createdAt   DateTime   @default(now())
+
+  @@index([email, purpose, createdAt])
+}
+
+model ResetToken {
+  id        String     @id @default(uuid())
+  userId    String
+  purpose   OtpPurpose
+  tokenHash String     @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime   @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model AuditLog {
+  id           String   @id @default(uuid())
+  actorType    String
+  actorId      String?
+  action       String
+  result       String
+  ip           String?
+  sessionId    String?
+  resourceType String?
+  resourceId   String?
+  metadata     Json?
+  createdAt    DateTime @default(now())
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+}
+
+enum TxType {
+  DEPOSIT
+  TRANSFER
+  RECEIVE
+  WITHDRAWAL
+  REFUND
+  TAX
+  FEE
+  PAYMENT
+  PAYOUT
+}
+
+enum TxStatus {
+  PENDING
+  PROCESSING
+  VERIFIED
+  SUCCESSFUL
+  FAILED
+  REJECTED
+  REFUNDED
+  MANUAL_REVIEW
+}
+
+enum TxDirection {
+  CREDIT
+  DEBIT
+}
+
+// Financial fields are immutable (enforced by a DB trigger); only status/metadata may change.
+model Transaction {
+  id                String      @id @default(uuid())
+  txnId             String      @unique
+  userId            String
+  type              TxType
+  direction         TxDirection
+  status            TxStatus    @default(SUCCESSFUL)
+  amount            BigInt
+  grossAmount       BigInt
+  tax               BigInt      @default(0)
+  taxRateBps        Int         @default(0)
+  fee               BigInt      @default(0)
+  netAmount         BigInt
+  currency          String      @default("INR")
+  balanceAfter      BigInt?
+  reference         String?
+  provider          String?
+  providerReference String?
+  idempotencyKey    String
+  refundOf          String?     @unique // DB-level guarantee: one refund per original transaction
+  description       String?
+  metadata          Json?
+  createdAt         DateTime    @default(now())
+  updatedAt         DateTime    @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, type, idempotencyKey])
+  @@unique([provider, providerReference]) // same bank transaction ID can never be credited twice
+  @@index([userId, createdAt])
+  @@index([reference])
+}
+
+model IdempotencyKey {
+  id          String   @id @default(uuid())
+  userId      String
+  scope       String
+  key         String
+  fingerprint String
+  status      String // IN_PROGRESS | COMPLETED
+  response    Json?
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, scope, key])
+}
+
+model SystemSetting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// ---------- Phase 3: deposits ----------
+// "Pay With UPI" deposit order. The user pays through any UPI app (intent link); the credit is matched to the
+// order when the verified bank feed reports the money (note carries the order ref, amount must match exactly).
+model UpiOrder {
+  id         String   @id @default(uuid())
+  orderRef   String   @unique // DEP-XXXXXXXX, sent to the UPI app as the payment note / transaction reference
+  userId     String
+  amount     BigInt   // gross paise the user pays
+  status     String   @default("CREATED") // CREATED | PAID | EXPIRED | CANCELLED
+  txnId      String?
+  bankUtr    String?  // transaction ID of the bank credit that settled this order
+  expiresAt  DateTime
+  paidAt     DateTime?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+  @@index([status, amount])
+}
+
+model WebhookEvent {
+  id          String   @id @default(uuid())
+  provider    String
+  eventId     String
+  eventType   String
+  processedAt DateTime @default(now())
+
+  @@unique([provider, eventId])
+}
+
+// Verified incoming money, fed by a bank/aggregator webhook or statement import. This is the source of truth for UTR checks.
+model BankCredit {
+  id         String   @id @default(uuid())
+  utr        String   @unique
+  amount     BigInt
+  payeeUpi   String?
+  payerName  String?
+  note       String?
+  source     String
+  receivedAt DateTime
+  createdAt  DateTime @default(now())
+}
+
+model UtrSubmission {
+  id         String   @id @default(uuid())
+  userId     String
+  utr        String   @unique // globally unique: one UTR can only ever be claimed once
+  amount     BigInt
+  status     String   @default("PENDING") // PENDING | MANUAL_REVIEW | VERIFIED | REJECTED
+  reason     String?
+  txnId      String?
+  adminNote  String?
+  reviewedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([status, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------- Phase 3: API gateway ----------
+enum ApiTokenStatus {
+  ACTIVE
+  REVOKED
+}
+
+model ApiToken {
+  id         String         @id @default(uuid())
+  userId     String
+  name       String?
+  tokenHash  String         @unique
+  tokenEnc   String? // AES-GCM sealed copy so the owner can re-view it after entering the PIN
+  kind       String         @default("ALL") // PAYOUT | MERCHANT | ALL (older all-in-one tokens)
+  prefix     String
+  scopes     String[]
+  status     ApiTokenStatus @default(ACTIVE)
+  lastUsedAt DateTime?
+  createdAt  DateTime       @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model ApiRequestLog {
+  id         String   @id @default(uuid())
+  tokenId    String
+  userId     String
+  method     String
+  path       String
+  status     Int
+  ip         String?
+  durationMs Int
+  createdAt  DateTime @default(now())
+
+  @@index([tokenId, createdAt])
+  @@index([userId, createdAt])
+}
+
+// ---------- Phase 4: receive / pay ----------
+model PaymentRequest {
+  id              String    @id @default(uuid())
+  requestId       String    @unique
+  userId          String
+  amount          BigInt
+  description     String?
+  payerInfo       String?
+  status          String    @default("PENDING") // PENDING | PAID | EXPIRED | CANCELLED
+  source          String    @default("WALLET") // WALLET | MERCHANT_API
+  merchantOrderId String?
+  expiresAt       DateTime
+  paidByUserId    String?
+  paidTxnId       String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, merchantOrderId])
+  @@index([userId, createdAt])
+  @@index([status, expiresAt])
+}
+
+// ---------- Phase 5: withdrawals ----------
+model Withdrawal {
+  id             String    @id @default(uuid())
+  withdrawalId   String    @unique
+  userId         String
+  amount         BigInt
+  fee            BigInt    @default(0)
+  destination    String
+  status         String    @default("PENDING") // PENDING | PROCESSING | SUCCESSFUL | FAILED | REFUNDED | MANUAL_REVIEW
+  txnId          String
+  idempotencyKey String
+  providerRef    String?
+  failureReason  String?
+  attempts       Int       @default(0)
+  nextCheckAt    DateTime?
+  submittedAt    DateTime?
+  adminNote      String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@unique([userId, idempotencyKey])
+  @@index([status, nextCheckAt])
+  @@index([userId, createdAt])
+}
+
+// ---------- Phase 6: merchant webhooks ----------
+model WebhookEndpoint {
+  id        String   @id @default(uuid())
+  userId    String   @unique
+  url       String
+  secretEnc String
+  events    String[]
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model WebhookDelivery {
+  id            String    @id @default(uuid())
+  userId        String
+  event         String
+  payload       Json
+  status        String    @default("PENDING") // PENDING | DELIVERED | FAILED
+  attempts      Int       @default(0)
+  nextAttemptAt DateTime  @default(now())
+  lastStatus    Int?
+  lastError     String?
+  createdAt     DateTime  @default(now())
+  deliveredAt   DateTime?
+
+  @@index([status, nextAttemptAt])
+  @@index([userId, createdAt])
+}
+
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  title     String
+  body      String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ---------- Phase 7: telegram ----------
+model TelegramLink {
+  id         String   @id @default(uuid())
+  userId     String   @unique
+  telegramId BigInt   @unique
+  username   String?
+  linkedAt   DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model TelegramLinkCode {
+  id        String    @id @default(uuid())
+  userId    String
+  codeHash  String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+// ---------- Phase 8: admin ----------
+enum AdminRole {
+  SUPER_ADMIN
+  FINANCE_ADMIN
+  SUPPORT_ADMIN
+  READ_ONLY
+}
+
+model Admin {
+  id                  String    @id @default(uuid())
+  email               String    @unique
+  passwordHash        String
+  role                AdminRole
+  active              Boolean   @default(true)
+  failedLoginAttempts Int       @default(0)
+  lockedUntil         DateTime?
+  createdAt           DateTime  @default(now())
+
+  sessions AdminSession[]
+}
+
+model AdminSession {
+  id        String    @id @default(uuid())
+  adminId   String
+  tokenHash String    @unique
+  ip        String?
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+}
+
+model RiskFlag {
+  id        String   @id @default(uuid())
+  userId    String
+  type      String
+  detail    String?
+  status    String   @default("OPEN") // OPEN | REVIEWED | DISMISSED
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@index([userId, type, createdAt])
+}

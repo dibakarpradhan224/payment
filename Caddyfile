@@ -1,0 +1,13 @@
+# Automatic HTTPS (Let's Encrypt). Set DOMAIN in the root .env.
+{$DOMAIN} {
+	encode gzip
+	header {
+		Strict-Transport-Security "max-age=31536000; includeSubDomains"
+		-Server
+	}
+	# Public API gateway, provider webhooks and health go straight to the backend.
+	@backend path /api/* /webhooks/* /health
+	reverse_proxy @backend backend:4000
+	# Everything else (website, Mini App, admin UI, /web/* and /admin/v1/* rewrites) goes through Next.js.
+	reverse_proxy frontend:3000
+}

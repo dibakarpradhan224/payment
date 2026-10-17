@@ -1,0 +1,188 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ---- theme palettes: every gold-* colour in the app follows these ---- */
+:root { --g300: 255 211 107; --g400: 255 190 61; --g500: 255 159 28; --g600: 242 125 12; --c2: 239 35 60; --c3: 124 58 237; --glow: 255 236 160; --ember: 255 179 71; --kanji: "呪"; }
+/* Gojo: Limitless blue, Hollow-Purple violet, Six-Eyes white */
+[data-theme="gojo"]   { --g300: 186 230 253; --g400: 125 211 252; --g500: 56 189 248; --g600: 99 102 241; --c2: 124 58 237; --c3: 56 189 248; --glow: 224 242 254; --ember: 147 197 253; --kanji: "無"; }
+/* Sukuna: crimson and black, cursed slashes */
+[data-theme="sukuna"] { --g300: 252 165 165; --g400: 248 113 113; --g500: 239 35 60; --g600: 185 28 28; --c2: 127 29 29; --c3: 239 35 60; --glow: 255 140 140; --ember: 239 68 68; --kanji: "斬"; }
+
+:root { color-scheme: dark; }
+html, body { background: #07070a; }
+html { scroll-behavior: smooth; }
+a, button { -webkit-tap-highlight-color: transparent; }
+@media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+body { font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-font-smoothing: antialiased; padding: env(safe-area-inset-top) 0 0; }
+::selection { background: rgb(var(--g500) / .35); }
+.glass { background: linear-gradient(180deg, rgba(27,27,34,.85), rgba(19,19,24,.85)); backdrop-filter: blur(12px); border: 1px solid #26262f; }
+.gold-text { background: linear-gradient(90deg, rgb(var(--g300)), rgb(var(--g500))); -webkit-background-clip: text; background-clip: text; color: transparent; }
+.skeleton { position: relative; overflow: hidden; background: #1b1b22; border-radius: .5rem; }
+.skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.06), transparent); animation: shimmer 1.4s infinite; }
+@media print { body * { visibility: hidden; } .print-area, .print-area * { visibility: visible; } .print-area { position: absolute; inset: 0; background: #fff !important; color: #000 !important; } .no-print { display: none !important; } }
+
+/* =====================================================================
+   Cursed-energy effects (original CSS, anime-inspired mood only)
+   ===================================================================== */
+body { background: transparent; }            /* lets the drifting embers show behind the pages */
+
+/* slash: a bright diagonal streak cuts across on hover */
+.slash { position: relative; overflow: hidden; isolation: isolate; }
+.slash::before { content: ""; position: absolute; top: -30%; bottom: -30%; left: -60%; width: 38%; transform: skewX(-24deg) translateX(-150%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.55), transparent); pointer-events: none; z-index: 1; }
+.slash:hover::before { animation: slash .75s cubic-bezier(.2,.7,.2,1); }
+@keyframes slash { to { transform: skewX(-24deg) translateX(620%); } }
+
+/* aura: breathing cursed-energy glow while hovered */
+.btn-cursed { transition: transform .15s ease, filter .2s ease; }
+.btn-cursed:hover:not(:disabled) { animation: aura 1.5s ease-in-out infinite; filter: brightness(1.08); }
+@keyframes aura {
+  0%, 100% { box-shadow: 0 0 0 1px rgb(var(--g500) / .4), 0 0 18px rgb(var(--g500) / .55), 0 0 44px rgba(239,35,60,.25); }
+  50%      { box-shadow: 0 0 0 1px rgb(var(--g300) / .7), 0 0 28px rgb(var(--g500) / .85), 0 0 62px rgba(124,58,237,.4); }
+}
+.btn-cursed[data-variant="ghost"]:hover:not(:disabled) { animation: aura-blue 1.5s ease-in-out infinite; }
+@keyframes aura-blue {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(56,189,248,.45), 0 0 16px rgba(56,189,248,.45), 0 0 40px rgba(124,58,237,.25); }
+  50%      { box-shadow: 0 0 0 1px rgba(125,211,252,.75), 0 0 26px rgba(56,189,248,.7), 0 0 56px rgba(124,58,237,.4); }
+}
+.btn-cursed[data-variant="danger"]:hover:not(:disabled) { animation: aura-red 1.2s ease-in-out infinite; }
+@keyframes aura-red {
+  0%, 100% { box-shadow: 0 0 0 1px rgba(239,35,60,.6), 0 0 18px rgba(239,35,60,.6); }
+  50%      { box-shadow: 0 0 0 1px rgba(255,120,130,.8), 0 0 34px rgba(239,35,60,.9), 0 0 64px rgba(0,0,0,.6); }
+}
+
+/* "Black Flash": on press, a black frame with a red spark ring snaps in and out */
+.btn-cursed:active:not(:disabled), .key-flash:active { animation: blackflash .38s ease-out; }
+@keyframes blackflash {
+  0%   { transform: scale(1);                    box-shadow: 0 0 0 0 rgba(239,35,60,.95); }
+  18%  { transform: scale(.955) translateX(-2px); box-shadow: 0 0 0 3px #000, 0 0 0 6px #ef233c, 0 0 30px 10px rgba(239,35,60,.85); filter: brightness(1.35) contrast(1.25); }
+  38%  { transform: scale(1.035) translateX(2px); box-shadow: 0 0 0 2px #000, 0 0 0 5px #ff5a6a, 0 0 20px 6px rgba(239,35,60,.6); }
+  100% { transform: scale(1);                    box-shadow: 0 0 0 0 rgba(239,35,60,0); }
+}
+
+/* tile / card hover aura */
+.card-aura { transition: transform .2s ease, border-color .25s ease, box-shadow .25s ease; }
+.card-aura:hover { transform: translateY(-3px); border-color: rgb(var(--g500) / .55); box-shadow: 0 10px 34px -10px rgb(var(--g500) / .45), 0 0 0 1px rgb(var(--g500) / .2); }
+.card-aura:hover svg { animation: pulse-icon .9s ease-in-out infinite; }
+@keyframes pulse-icon { 50% { transform: scale(1.18); filter: drop-shadow(0 0 6px rgb(var(--g500) / .9)); } }
+
+/* glitch on hover (brand name) */
+.glitch:hover { animation: glitch .4s steps(2) 1; }
+@keyframes glitch {
+  0%   { text-shadow: 2px 0 #ef233c, -2px 0 #38bdf8; transform: translate(0); }
+  25%  { text-shadow: -2px 0 #ef233c, 2px 0 #38bdf8; transform: translate(-1px, 1px); }
+  50%  { text-shadow: 3px 0 #ef233c, -3px 0 #38bdf8; transform: translate(1px, -1px); }
+  100% { text-shadow: none; transform: translate(0); }
+}
+.flicker { animation: flicker 5s infinite; }
+@keyframes flicker { 0%, 100% { opacity: 1; } 92% { opacity: 1; } 93% { opacity: .35; } 94% { opacity: 1; } 96% { opacity: .5; } 97% { opacity: 1; } }
+
+/* drifting cursed-energy orbs + rising embers behind everything */
+.orb { position: absolute; border-radius: 9999px; filter: blur(70px); will-change: transform; animation: drift 22s ease-in-out infinite alternate; }
+.orb-a { width: 38vmax; height: 38vmax; left: -12vmax; top: -12vmax; background: radial-gradient(circle, rgb(var(--g500) / .22), transparent 65%); }
+.orb-b { width: 34vmax; height: 34vmax; right: -10vmax; bottom: -12vmax; background: radial-gradient(circle, rgb(var(--c2) / .17), transparent 65%); animation-duration: 28s; animation-delay: -6s; }
+.orb-c { width: 28vmax; height: 28vmax; right: 8vmax; top: 18vh; background: radial-gradient(circle, rgb(var(--c3) / .14), transparent 65%); animation-duration: 34s; animation-delay: -12s; }
+@keyframes drift { from { transform: translate(0, 0) scale(1); } to { transform: translate(6vmax, 4vmax) scale(1.18); } }
+.ember { position: absolute; bottom: 0; border-radius: 9999px; background: rgb(var(--ember)); box-shadow: 0 0 8px 2px rgb(var(--g500) / .8); opacity: 0; will-change: transform, opacity; animation: ember linear infinite; }
+@keyframes ember { 0% { transform: translateY(0) translateX(0) scale(1); opacity: 0; } 12% { opacity: .85; } 100% { transform: translateY(-108vh) translateX(34px) scale(.3); opacity: 0; } }
+
+/* "domain expansion": a dark disc with a glowing rim unfolds from the centre on each page change */
+.domain-flash { position: fixed; left: 50%; top: 50%; width: 150vmax; height: 150vmax; margin: -75vmax 0 0 -75vmax; pointer-events: none; border-radius: 9999px;
+  background: radial-gradient(circle, rgba(7,7,10,.78) 0, rgba(7,7,10,.78) 46%, rgb(var(--g500) / .5) 50%, rgb(var(--c3) / .3) 54%, transparent 60%);
+  animation: domain .7s cubic-bezier(.2,.7,.2,1) both; }
+@keyframes domain { from { transform: scale(.06); opacity: 1; } to { transform: scale(1.5); opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) { .ember, .orb, .domain-flash, .flicker { display: none; } }
+
+/* =====================================================================
+   Esports-style angular buttons (slanted edges, bevel, energy stripes)
+   ===================================================================== */
+.btn-ff { --cut: 14px; position: relative; isolation: isolate; overflow: hidden; border-radius: 0 !important; padding-inline: 1.45rem; letter-spacing: .035em; font-weight: 800;
+  clip-path: polygon(var(--cut) 0, 100% 0, calc(100% - var(--cut)) 100%, 0 100%);
+  box-shadow: inset 0 2px 0 rgba(255,255,255,.45), inset 0 -3px 0 rgba(0,0,0,.35);
+  transition: transform .15s ease, filter .2s ease; }
+/* light streak that cuts across on hover */
+.btn-ff::before { content: ""; position: absolute; top: -30%; bottom: -30%; left: -60%; width: 36%; transform: skewX(-24deg) translateX(-150%); background: linear-gradient(90deg, transparent, rgba(255,255,255,.6), transparent); pointer-events: none; z-index: 1; }
+.btn-ff:hover:not(:disabled)::before { animation: slash .7s cubic-bezier(.2,.7,.2,1); }
+/* moving energy stripes + faint kanji for "curse" */
+.btn-ff::after { content: var(--kanji, "呪"); position: absolute; inset: 0; z-index: -1; display: flex; align-items: center; justify-content: flex-end; padding-right: 1rem; font-size: 1.6em; line-height: 1; color: rgba(0,0,0,.22); opacity: 0; pointer-events: none;
+  background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.16) 0 5px, transparent 5px 12px); transition: opacity .25s; }
+.btn-ff:hover:not(:disabled)::after { opacity: 1; animation: stripes 1s linear infinite; }
+@keyframes stripes { from { background-position: 0 0; } to { background-position: 48px 0; } }
+.btn-ff:hover:not(:disabled) { animation: ffpulse 1.2s ease-in-out infinite; filter: brightness(1.1); transform: translateY(-1px); }
+@keyframes ffpulse {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(255,255,255,.6), inset 0 -3px 0 rgba(0,0,0,.35), inset 0 0 14px rgba(255,255,255,.25); }
+  50%      { box-shadow: inset 0 2px 0 rgba(255,255,255,.85), inset 0 -3px 0 rgba(0,0,0,.3), inset 0 0 32px rgb(var(--glow) / .65); }
+}
+.btn-ff[data-variant="ghost"]::after { color: rgba(125,211,252,.28); background-image: repeating-linear-gradient(115deg, rgba(56,189,248,.18) 0 5px, transparent 5px 12px); }
+.btn-ff[data-variant="ghost"]:hover:not(:disabled) { animation: ffpulse-blue 1.2s ease-in-out infinite; }
+@keyframes ffpulse-blue {
+  0%, 100% { box-shadow: inset 0 0 0 1px rgba(56,189,248,.7), inset 0 2px 0 rgba(255,255,255,.25), inset 0 0 18px rgba(56,189,248,.35); }
+  50%      { box-shadow: inset 0 0 0 1px rgba(125,211,252,.95), inset 0 2px 0 rgba(255,255,255,.4), inset 0 0 34px rgba(124,58,237,.55); }
+}
+.btn-ff[data-variant="danger"]::after { color: rgba(0,0,0,.35); background-image: repeating-linear-gradient(115deg, rgba(0,0,0,.28) 0 5px, transparent 5px 12px); }
+.btn-ff[data-variant="danger"]:hover:not(:disabled) { animation: ffpulse-red 1.1s ease-in-out infinite; }
+@keyframes ffpulse-red {
+  0%, 100% { box-shadow: inset 0 2px 0 rgba(255,255,255,.4), inset 0 -3px 0 rgba(0,0,0,.4), inset 0 0 16px rgba(255,80,90,.5); }
+  50%      { box-shadow: inset 0 2px 0 rgba(255,255,255,.6), inset 0 -3px 0 rgba(0,0,0,.4), inset 0 0 34px rgba(255,60,70,.9); }
+}
+/* press: glitchy red/black flash */
+.btn-ff:active:not(:disabled) { animation: ffflash .34s ease-out; }
+@keyframes ffflash {
+  0%   { transform: none; filter: none; }
+  20%  { transform: translate(-2px, 1px) skewX(-3deg); filter: brightness(1.7) contrast(1.4) saturate(1.4); box-shadow: inset 0 0 0 3px #ef233c, inset 0 0 26px rgba(239,35,60,.9); }
+  45%  { transform: translate(2px, -1px) skewX(2deg); filter: brightness(.7) contrast(1.5); box-shadow: inset 0 0 0 3px #000, inset 0 0 22px rgba(124,58,237,.8); }
+  100% { transform: none; filter: none; }
+}
+.btn-ff:focus-visible { outline: none; box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 5px rgb(var(--g500) / .95); }
+.btn-ff:disabled { filter: grayscale(.45); }
+
+/* chamfered keypad keys */
+.key-ff { --cut: 14px; position: relative; isolation: isolate; overflow: hidden; border-radius: 0 !important;
+  clip-path: polygon(var(--cut) 0, 100% 0, 100% calc(100% - var(--cut)), calc(100% - var(--cut)) 100%, 0 100%, 0 var(--cut));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.12), inset 0 0 0 1px rgb(var(--g500) / .18); }
+.key-ff:hover:not(:disabled) { box-shadow: inset 0 0 0 1px rgb(var(--g500) / .7), inset 0 0 22px rgb(var(--g500) / .28); }
+.key-ff:active:not(:disabled) { animation: ffflash .34s ease-out; }
+
+/* slanted tabs */
+.tab-ff { clip-path: polygon(8px 0, 100% 0, calc(100% - 8px) 100%, 0 100%); border-radius: 0 !important; padding-inline: 1.1rem !important; }
+
+/* click sparks */
+.spark { position: fixed; width: 5px; height: 5px; margin: -2px 0 0 -2px; border-radius: 9999px; pointer-events: none; z-index: 200; transform: rotate(var(--rot, 0deg)); box-shadow: 0 0 8px 1px currentColor; animation: spark .62s ease-out forwards; }
+.spark.line { width: 14px; height: 2px; border-radius: 2px; margin: -1px 0 0 -7px; }
+@keyframes spark { to { transform: translate(var(--dx), var(--dy)) rotate(var(--rot, 0deg)) scale(.2); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { .spark { display: none; } }
+
+
+/* =====================================================================
+   Gojo: "Limitless". Press = expanding barrier rings + blue/violet flash. Stripes are white light.
+   Sukuna: "Dismantle". Press = crossing slashes + crimson/black glitch. Stripes are black cuts.
+   ===================================================================== */
+[data-theme="gojo"] .btn-ff::after { color: rgba(255,255,255,.3); background-image: repeating-linear-gradient(115deg, rgba(255,255,255,.24) 0 3px, transparent 3px 11px); }
+[data-theme="gojo"] .btn-ff:active:not(:disabled), [data-theme="gojo"] .key-ff:active:not(:disabled) { animation: gojo-flash .42s ease-out; }
+@keyframes gojo-flash {
+  0%   { transform: none; filter: none; }
+  25%  { transform: scale(1.045); filter: brightness(1.6) saturate(1.3); box-shadow: inset 0 0 0 3px #fff, inset 0 0 36px rgb(56 189 248 / .95); }
+  55%  { transform: scale(.98); filter: brightness(1.1); box-shadow: inset 0 0 0 2px rgb(124 58 237), inset 0 0 28px rgb(124 58 237 / .85); }
+  100% { transform: none; filter: none; }
+}
+[data-theme="sukuna"] .btn-ff::after { color: rgba(0,0,0,.4); background-image: repeating-linear-gradient(115deg, rgba(0,0,0,.38) 0 4px, transparent 4px 13px); }
+[data-theme="sukuna"] .btn-ff:hover:not(:disabled) { animation: ffpulse-red 1s ease-in-out infinite; }
+[data-theme="sukuna"] .btn-ff:active:not(:disabled), [data-theme="sukuna"] .key-ff:active:not(:disabled) { animation: sukuna-flash .4s steps(8, end); }
+@keyframes sukuna-flash {
+  0%   { transform: none; filter: none; }
+  15%  { transform: translate(-3px, 1px) skewX(-6deg); filter: brightness(.55) contrast(1.6); box-shadow: inset 0 0 0 3px #000, inset 0 0 30px rgb(239 35 60 / .95); }
+  35%  { transform: translate(3px, -1px) skewX(5deg); filter: brightness(1.8) contrast(1.4) saturate(1.5); box-shadow: inset 0 0 0 3px #ef233c, inset 0 0 40px rgb(255 120 120 / .9); }
+  60%  { transform: translate(-2px, 0) skewX(-3deg); filter: brightness(.7); }
+  100% { transform: none; filter: none; }
+}
+.ring { position: fixed; width: 12px; height: 12px; border-radius: 9999px; border: 2px solid rgb(125 211 252); box-shadow: 0 0 14px rgb(56 189 248 / .8), inset 0 0 10px rgb(56 189 248 / .6); pointer-events: none; z-index: 200; transform: translate(-50%, -50%); animation: ring .78s cubic-bezier(.1,.7,.2,1) forwards; }
+.ring.r2 { border-color: rgb(167 139 250); box-shadow: 0 0 14px rgb(124 58 237 / .8); animation-delay: .1s; animation-duration: .95s; }
+@keyframes ring { from { transform: translate(-50%, -50%) scale(1); opacity: 1; } to { transform: translate(-50%, -50%) scale(17); opacity: 0; } }
+.cut { position: fixed; width: 200px; height: 3px; pointer-events: none; z-index: 200; background: linear-gradient(90deg, transparent, #fff 35%, #ef233c 65%, transparent); box-shadow: 0 0 12px 2px rgb(239 35 60 / .85); transform: translate(-50%, -50%) rotate(var(--rot)) scaleX(0); animation: cut .5s ease-out forwards; }
+@keyframes cut {
+  0%   { transform: translate(-50%, -50%) rotate(var(--rot)) scaleX(0); opacity: 1; }
+  30%  { transform: translate(-50%, -50%) rotate(var(--rot)) scaleX(1); opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(var(--rot)) scaleX(1.15); opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .ring, .cut { display: none; } }
