@@ -5,7 +5,7 @@ try { process.loadEnvFile('.env'); } catch { /* no .env file: rely on real envir
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(4000),
+  PORT: z.coerce.number().default(Number(process.env.PORT) || 4000),
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().optional(),
   APP_URL: z.string().url(),
