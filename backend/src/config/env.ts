@@ -5,7 +5,7 @@ try { process.loadEnvFile('.env'); } catch { /* no .env file: rely on real envir
 
 const schema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
-  PORT: z.coerce.number().default(Number(process.env.PORT) || 4000),
+  PORT: z.coerce.number().default(4000),
   DATABASE_URL: z.string().min(1),
   DIRECT_URL: z.string().optional(),
   APP_URL: z.string().url(),
@@ -17,6 +17,9 @@ const schema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: z.string().optional(),
   SMTP_PASSWORD: z.string().optional(),
+  // HTTPS email APIs (use one when the host blocks SMTP ports, e.g. Railway trial/hobby plans)
+  BREVO_API_KEY: z.string().optional(),
+  RESEND_API_KEY: z.string().optional(),
   BANK_WEBHOOK_SECRET: z.string().min(16).optional(),
   UPI_ID: z.string().optional(),
   UPI_NAME: z.string().default('Gateway'),
